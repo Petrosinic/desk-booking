@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
-<title>Desk Booking — ClassPi</title>
+<title>Desk Booking — Ufficio</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -22,7 +22,7 @@ import {
 const firebaseConfig = {
   apiKey:            "AIzaSyBER7a5X69sVNux7ob0NrnbPx3x42_NPGg",
   authDomain:        "desk-booking-1c5cd.firebaseapp.com",
-  databaseURL:       "https://desk-booking-1c5cd-default-rtdb.europe-west1.firebasedatabase.app/",
+  databaseURL:       "https://desk-booking-1c5cd-default-rtdb.europe-west1.firebasedatabase.app",
   projectId:         "desk-booking-1c5cd",
   storageBucket:     "desk-booking-1c5cd.firebasestorage.app",
   messagingSenderId: "209459694209",
@@ -468,17 +468,24 @@ main {
 /* ═══════════════════════════════════════════════════════════
    CONSTANTS
 ═══════════════════════════════════════════════════════════ */
-const TOTAL = 24;
+const TOTAL = 28; // 6+6+4+4+4+4
 const ZONES = [
-  { id:"A", name:"Zona Agenti 1", bg:"rgba(33,150,243,.12)", border:"rgba(33,150,243,.35)", text:"#64B5F6" },
-  { id:"B", name:"Zona Agenti 2", bg:"rgba(156,39,176,.12)", border:"rgba(156,39,176,.35)", text:"#CE93D8" },
-  { id:"C", name:"Zona Amministrazione", bg:"rgba(46,204,113,.10)", border:"rgba(46,204,113,.35)", text:"#81C784" },
-  { id:"D", name:"Zona Traffico", bg:"rgba(243,156,18,.10)", border:"rgba(243,156,18,.35)", text:"#FFB74D" },
+  { id:"AG1", name:"Agenti 1",        size:6, bg:"rgba(33,150,243,.12)",  border:"rgba(33,150,243,.35)",  text:"#64B5F6" },
+  { id:"AG2", name:"Agenti 2",        size:6, bg:"rgba(156,39,176,.12)",  border:"rgba(156,39,176,.35)",  text:"#CE93D8" },
+  { id:"MKT", name:"Marketing",       size:4, bg:"rgba(46,204,113,.10)",  border:"rgba(46,204,113,.35)",  text:"#81C784" },
+  { id:"AMM", name:"Amministrazione", size:4, bg:"rgba(231,76,60,.10)",   border:"rgba(231,76,60,.35)",   text:"#EF9A9A" },
+  { id:"TRF", name:"Traffico",        size:4, bg:"rgba(0,188,212,.10)",   border:"rgba(0,188,212,.35)",   text:"#80DEEA" },
+  { id:"MOD", name:"Agenti Moda",     size:4, bg:"rgba(243,156,18,.10)",  border:"rgba(243,156,18,.35)",  text:"#FFB74D" },
 ];
-const DESKS = Array.from({length:TOTAL},(_,i)=>({
-  id: i+1, zone: ZONES[Math.floor(i/6)],
-  row: Math.floor((i%6)/3), col: i%3
-}));
+// Build desks: each zone gets ids sequentially, rows split at size/2
+const DESKS = [];
+let deskId = 1;
+for (const zone of ZONES) {
+  const half = zone.size / 2;
+  for (let i = 0; i < zone.size; i++) {
+    DESKS.push({ id: deskId++, zone, row: Math.floor(i / half), col: i % half });
+  }
+}
 const MONTHS = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
 const DAYS_SHORT = ["L","M","M","G","V","S","D"];
 const DAY_NAMES = ["Dom","Lun","Mar","Mer","Gio","Ven","Sab"];
@@ -705,9 +712,14 @@ function renderMapView() {
     el("span",{},"OPEN SPACE"),
     el("span",{},"FINESTRE →")
   ));
-  const grid = el("div",{class:"zones-grid"});
-  ZONES.forEach(z=>grid.appendChild(renderZone(z)));
-  wrap.appendChild(grid);
+  // Row 1: Agenti 1 + Agenti 2 (6 desks each, side by side)
+  const row1 = el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px",marginBottom:"14px"}});
+  ZONES.filter(z=>z.id==="AG1"||z.id==="AG2").forEach(z=>row1.appendChild(renderZone(z)));
+  wrap.appendChild(row1);
+  // Row 2: Marketing + Amministrazione + Traffico + Agenti Moda (4 desks each)
+  const row2 = el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"14px"}});
+  ZONES.filter(z=>z.id==="MKT"||z.id==="AMM"||z.id==="TRF"||z.id==="MOD").forEach(z=>row2.appendChild(renderZone(z)));
+  wrap.appendChild(row2);
   wrap.appendChild(el("div",{class:"legend"},
     ...[["var(--green)","Libera"],["var(--red)","Occupata"],["var(--accent)","La tua"]].map(([c,l])=>
       el("div",{class:"legend-item"}, el("div",{class:"legend-dot",style:{background:c}}), l)
@@ -1001,7 +1013,7 @@ function renderLogin(app) {
   const card   = el("div",{class:"login-card"});
   card.appendChild(el("div",{class:"login-icon"},"🏢"));
   card.appendChild(el("div",{class:"login-title"},"DESK BOOKING"));
-  card.appendChild(el("div",{class:"login-sub"},"Sistema prenotazione scrivanie · 24 postazioni"));
+  card.appendChild(el("div",{class:"login-sub"},"Sistema prenotazione scrivanie · 28 postazioni · 6 zone"));
 
   const label = el("label",{class:"input-label"},"COME TI CHIAMI?");
   const input = el("input",{class:"input",type:"text",placeholder:"Es. Mario Rossi"});
