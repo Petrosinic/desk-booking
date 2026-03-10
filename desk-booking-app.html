@@ -20,13 +20,13 @@ import {
    (vedi istruzioni in fondo alla pagina)
 ═══════════════════════════════════════════════════════════ */
 const firebaseConfig = {
-  apiKey:            "AIzaSyBER7a5X69sVNux7ob0NrnbPx3x42_NPGg",
-  authDomain:        "desk-booking-1c5cd.firebaseapp.com",
-  databaseURL:       "https://desk-booking-1c5cd-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId:         "desk-booking-1c5cd",
-  storageBucket:     "desk-booking-1c5cd.firebasestorage.app",
-  messagingSenderId: "209459694209",
-  appId:             "1:209459694209:web:14b58df66b7683eee85b80"
+  apiKey:            "INSERISCI_QUI_LA_TUA_API_KEY",
+  authDomain:        "INSERISCI_QUI.firebaseapp.com",
+  databaseURL:       "https://INSERISCI_QUI-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "INSERISCI_QUI",
+  storageBucket:     "INSERISCI_QUI.appspot.com",
+  messagingSenderId: "INSERISCI_QUI",
+  appId:             "INSERISCI_QUI"
 };
 /* ═══════════════════════════════════════════════════════════ */
 
@@ -231,7 +231,6 @@ main {
   margin-bottom: 16px; font-weight: 600;
 }
 .zones-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-@media (max-width: 500px) { .zones-grid { grid-template-columns: 1fr; } }
 
 .zone-pod {
   border-radius: 14px; padding: 14px 16px;
@@ -245,14 +244,14 @@ main {
   font-size: 11px; padding: 2px 8px; border-radius: 10px;
   font-weight: 600;
 }
-.desks-row { display: flex; gap: 8px; justify-content: center; }
+.desks-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .aisle { height: 8px; margin: 5px 0; border-radius: 4px; opacity: .3; }
 
 .desk {
   width: 68px; height: 52px; border-radius: 10px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   cursor: pointer; transition: all .18s ease; position: relative;
-  border: 2px solid transparent;
+  border: 2px solid transparent; flex-shrink: 0;
 }
 .desk:hover { transform: scale(1.1); }
 .desk-num {
@@ -266,6 +265,34 @@ main {
 .desk-monitor {
   width: 26px; height: 3px; border-radius: 2px 2px 0 0;
   margin-bottom: 3px; opacity: .4;
+}
+
+/* ── MOBILE RESPONSIVE MAP ── */
+@media (max-width: 640px) {
+  .map-card { padding: 14px 10px; }
+  .map-row-2col  { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+  .map-row-4col  { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+  .zone-pod { padding: 10px 10px; }
+  .zone-header { font-size: 11px; margin-bottom: 8px; }
+  .desks-row { gap: 6px; }
+  .desk { width: 56px; height: 44px; border-radius: 8px; }
+  .desk-num { font-size: 13px; }
+  .desk-name { font-size: 8px; max-width: 50px; }
+  .desk-monitor { width: 20px; }
+  .desk-led { width: 10px; height: 10px; top: -3px; right: -3px; }
+  .aisle { height: 6px; margin: 3px 0; }
+  .content { padding: 12px 10px; gap: 10px; }
+  .date-label { font-size: 16px; }
+  .stat-num { font-size: 22px; }
+}
+
+@media (max-width: 380px) {
+  .desk { width: 48px; height: 40px; border-radius: 7px; }
+  .desk-num { font-size: 12px; }
+  .desk-name { display: none; }
+  .desk-monitor { width: 18px; }
+  .desks-row { gap: 5px; }
+  .zone-pod { padding: 8px 8px; }
 }
 .desk-led {
   position: absolute; top: -4px; right: -4px;
@@ -713,11 +740,11 @@ function renderMapView() {
     el("span",{},"FINESTRE →")
   ));
   // Row 1: Agenti 1 + Agenti 2 (6 desks each, side by side)
-  const row1 = el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px",marginBottom:"14px"}});
+  const row1 = el("div",{class:"map-row-2col",style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px",marginBottom:"14px"}});
   ZONES.filter(z=>z.id==="AG1"||z.id==="AG2").forEach(z=>row1.appendChild(renderZone(z)));
   wrap.appendChild(row1);
   // Row 2: Marketing + Amministrazione + Traffico + Agenti Moda (4 desks each)
-  const row2 = el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"14px"}});
+  const row2 = el("div",{class:"map-row-4col",style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"14px"}});
   ZONES.filter(z=>z.id==="MKT"||z.id==="AMM"||z.id==="TRF"||z.id==="MOD").forEach(z=>row2.appendChild(renderZone(z)));
   wrap.appendChild(row2);
   wrap.appendChild(el("div",{class:"legend"},
@@ -1102,13 +1129,13 @@ function showSetupGuide() {
       <li>Apri questo file HTML con un editor di testo (es. Blocco Note) e <strong>sostituisci</strong> i valori nella sezione <code>firebaseConfig</code> in cima al file</li>
     </ol>
     <pre>const firebaseConfig = {
-  apiKey:            "AIzaSy...",
-  authDomain:        "mio-progetto.firebaseapp.com",
-  databaseURL:       "https://mio-progetto-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId:         "mio-progetto",
-  storageBucket:     "mio-progetto.appspot.com",
-  messagingSenderId: "123456789",
-  appId:             "1:123456789:web:abc123"
+  apiKey:            "AIzaSyBER7a5X69sVNux7ob0NrnbPx3x42_NPGg",
+  authDomain:        "desk-booking-1c5cd.firebaseapp.com",
+  databaseURL:       "https://desk-booking-1c5cd-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "desk-booking-1c5cd",
+  storageBucket:     "desk-booking-1c5cd.firebasestorage.app",
+  messagingSenderId: "209459694209",
+  appId:             "1:209459694209:web:14b58df66b7683eee85b80"
 };</pre>
     <p style="color:var(--muted);font-size:13px;margin-top:12px;">
       ⚠️ <strong style="color:var(--text)">Importante:</strong> nelle regole del database, assicurati che siano impostate su <code>"read": true, "write": true</code> durante i test.
