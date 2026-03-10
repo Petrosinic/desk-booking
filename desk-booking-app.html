@@ -470,10 +470,10 @@ main {
 ═══════════════════════════════════════════════════════════ */
 const TOTAL = 24;
 const ZONES = [
-  { id:"A", name:"Zona A", bg:"rgba(33,150,243,.12)", border:"rgba(33,150,243,.35)", text:"#64B5F6" },
-  { id:"B", name:"Zona B", bg:"rgba(156,39,176,.12)", border:"rgba(156,39,176,.35)", text:"#CE93D8" },
-  { id:"C", name:"Zona C", bg:"rgba(46,204,113,.10)", border:"rgba(46,204,113,.35)", text:"#81C784" },
-  { id:"D", name:"Zona D", bg:"rgba(243,156,18,.10)", border:"rgba(243,156,18,.35)", text:"#FFB74D" },
+  { id:"A", name:"Zona Agenti 1", bg:"rgba(33,150,243,.12)", border:"rgba(33,150,243,.35)", text:"#64B5F6" },
+  { id:"B", name:"Zona Agenti 2", bg:"rgba(156,39,176,.12)", border:"rgba(156,39,176,.35)", text:"#CE93D8" },
+  { id:"C", name:"Zona Amministrazione", bg:"rgba(46,204,113,.10)", border:"rgba(46,204,113,.35)", text:"#81C784" },
+  { id:"D", name:"Zona Traffico", bg:"rgba(243,156,18,.10)", border:"rgba(243,156,18,.35)", text:"#FFB74D" },
 ];
 const DESKS = Array.from({length:TOTAL},(_,i)=>({
   id: i+1, zone: ZONES[Math.floor(i/6)],
