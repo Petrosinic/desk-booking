@@ -600,10 +600,11 @@ function subscribeToMonth(year, month) {
 
 async function bookDesk(deskId, name) {
   const normalizedName = normalizeName(name);
-  if (state.bookings[deskId]) { showNotif("⚠️ Scrivania già occupata!","error"); return; }
-  // Controlla: stessa persona non può prenotare più di una scrivania al giorno
+  // Prima controlla se l'utente ha già una prenotazione oggi
   const alreadyBooked = Object.values(state.bookings).some(b => b.name.toLowerCase() === normalizedName.toLowerCase());
   if (alreadyBooked) { showNotif("⚠️ Hai già una prenotazione per questo giorno!","error"); return; }
+  // Poi controlla se la scrivania specifica è già occupata
+  if (state.bookings[deskId]) { showNotif("⚠️ Scrivania già occupata!","error"); return; }
   const r = window.__ref(window.__db, `bookings/${state.selectedDate}/${deskId}`);
   await window.__set(r, { name: normalizedName, bookedAt: new Date().toISOString() });
 }
