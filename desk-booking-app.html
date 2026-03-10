@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
-<title>Desk Booking — ClassPi</title>
+<title>Desk Booking — Ufficio</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -549,6 +549,9 @@ const el = (tag, props={}, ...children) => {
 };
 const html = (str) => { const d = document.createElement("div"); d.innerHTML = str; return d.firstChild; };
 
+// Normalizza il nome: "mario rossi" → "Mario Rossi" (case-insensitive)
+const normalizeName = s => s.trim().toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+
 /* ═══════════════════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════════════════ */
@@ -596,13 +599,13 @@ function subscribeToMonth(year, month) {
 }
 
 async function bookDesk(deskId, name) {
-  const path = `bookings/${state.selectedDate}/${deskId}`;
-  const r = window.__ref(window.__db, path);
-  const snap = await window.__db.__get ? null : await (async()=>{ const g = window.__ref(window.__db,path); return (await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js")).get(g); })();
-  // Use set directly — Firebase will overwrite if exists, we check first via onValue state
+  const normalizedName = normalizeName(name);
   if (state.bookings[deskId]) { showNotif("⚠️ Scrivania già occupata!","error"); return; }
-  await window.__set(r, { name, bookedAt: new Date().toISOString() });
-  // onValue will auto-update
+  // Controlla: stessa persona non può prenotare più di una scrivania al giorno
+  const alreadyBooked = Object.values(state.bookings).some(b => b.name.toLowerCase() === normalizedName.toLowerCase());
+  if (alreadyBooked) { showNotif("⚠️ Hai già una prenotazione per questo giorno!","error"); return; }
+  const r = window.__ref(window.__db, `bookings/${state.selectedDate}/${deskId}`);
+  await window.__set(r, { name: normalizedName, bookedAt: new Date().toISOString() });
 }
 
 async function cancelDesk(deskId) {
@@ -672,7 +675,7 @@ function openModal(desk) {
     const input = el("input",{class:"input", type:"text", placeholder:"Es. Mario Rossi"});
     input.value = state.currentUser || "";
     const btn = el("button",{class:"btn-primary", onClick: async()=>{
-      const name = input.value.trim();
+      const name = normalizeName(input.value);
       if (!name) return;
       await bookDesk(desk.id, name);
       state.currentUser = name;
@@ -1045,7 +1048,7 @@ function renderLogin(app) {
   const label = el("label",{class:"input-label"},"COME TI CHIAMI?");
   const input = el("input",{class:"input",type:"text",placeholder:"Es. Mario Rossi"});
   const btn   = el("button",{class:"btn-primary",onClick:()=>{
-    const v=input.value.trim();
+    const v=normalizeName(input.value);
     if(!v)return;
     state.currentUser=v;
     localStorage.setItem("desk-user",v);
