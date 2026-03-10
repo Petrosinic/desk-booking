@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>Desk Booking — Ufficio</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+
+<!-- ═══════════════════════════════════════════════════════════
+     FIREBASE SDK
+═══════════════════════════════════════════════════════════ -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getDatabase, ref, set, remove, onValue, get
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+/* ═══════════════════════════════════════════════════════════
+   🔧 CONFIGURAZIONE FIREBASE — sostituisci con i tuoi valori
+   (vedi istruzioni in fondo alla pagina)
+═══════════════════════════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey:            "INSERISCI_QUI_LA_TUA_API_KEY",
+  authDomain:        "INSERISCI_QUI.firebaseapp.com",
+  databaseURL:       "https://INSERISCI_QUI-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "INSERISCI_QUI",
+  storageBucket:     "INSERISCI_QUI.appspot.com",
+  messagingSenderId: "INSERISCI_QUI",
+  appId:             "INSERISCI_QUI"
+};
+/* ═══════════════════════════════════════════════════════════ */
+
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+
+window.__db  = db;
+window.__ref = ref;
+window.__set = set;
+window.__remove = remove;
+window.__onValue = onValue;
+window.__fbReady = true;
+window.dispatchEvent(new Event("fb-ready"));
+</script>
+
+<style>
+:root {
+  --bg:       #0F1117;
+  --surface:  #1A1D27;
+  --surface2: #22263A;
+  --border:   #2E3350;
+  --accent:   #4F7EFF;
+  --green:    #2ECC71;
+  --red:      #E74C3C;
+  --orange:   #F39C12;
+  --text:     #E8EAF6;
+  --muted:    #6B7299;
+  --font-h:   'Syne', sans-serif;
+  --font-b:   'DM Sans', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-b);
+  min-height: 100vh;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Animations ── */
+@keyframes fadeIn   { from{opacity:0} to{opacity:1} }
+@keyframes slideUp  { from{transform:translateY(16px);opacity:0} to{transform:translateY(0);opacity:1} }
+@keyframes slideDown{ from{transform:translateY(-16px);opacity:0} to{transform:translateY(0);opacity:1} }
+@keyframes pulse    { 0%,100%{box-shadow:0 0 0 0 rgba(46,204,113,.5)} 50%{box-shadow:0 0 0 8px rgba(46,204,113,0)} }
+@keyframes spin     { to{transform:rotate(360deg)} }
+
+.spin { animation: spin 1s linear infinite; }
+
+/* ── Layout ── */
+#app { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ── Header ── */
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px; height: 60px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 100;
+}
+.logo {
+  font-family: var(--font-h); font-size: 18px; font-weight: 800;
+  letter-spacing: 2px; color: var(--text);
+  display: flex; align-items: center; gap: 10px;
+}
+.logo-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--accent); display: flex; align-items: center;
+  justify-content: center; font-size: 16px;
+}
+.header-pills { display: flex; gap: 10px; align-items: center; }
+.pill {
+  padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;
+  display: flex; align-items: center; gap: 6px; cursor: default;
+}
+.pill-green { background: rgba(46,204,113,.15); color: var(--green); border: 1px solid rgba(46,204,113,.3); }
+.pill-red   { background: rgba(231,76,60,.15);  color: var(--red);   border: 1px solid rgba(231,76,60,.3); }
+.dot { width: 7px; height: 7px; border-radius: 50%; }
+
+/* ── Main grid ── */
+main {
+  flex: 1; display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 0;
+}
+@media (max-width: 720px) {
+  main { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .sidebar.open { display: flex !important; position: fixed; inset: 60px 0 0 0; z-index: 99; overflow-y: auto; }
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 20px;
+  padding: 20px 16px;
+  overflow-y: auto;
+}
+
+/* ── Calendar ── */
+.cal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.cal-nav {
+  background: none; border: 1px solid var(--border); color: var(--muted);
+  width: 28px; height: 28px; border-radius: 8px; cursor: pointer;
+  font-size: 16px; display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.cal-nav:hover { background: var(--surface2); color: var(--text); }
+.cal-month { font-family: var(--font-h); font-size: 14px; font-weight: 700; }
+.cal-days-header {
+  display: grid; grid-template-columns: repeat(7,1fr);
+  gap: 2px; margin-bottom: 4px;
+}
+.cal-day-name { text-align: center; font-size: 10px; font-weight: 600; color: var(--muted); padding: 2px 0; }
+.cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; }
+.cal-cell {
+  aspect-ratio: 1; border-radius: 8px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; cursor: pointer;
+  font-size: 12px; font-weight: 500; color: var(--muted);
+  transition: all .15s; position: relative; gap: 2px;
+}
+.cal-cell:hover:not(.past):not(.empty) { background: var(--surface2); color: var(--text); }
+.cal-cell.today { border: 1px solid var(--accent); color: var(--accent); }
+.cal-cell.selected { background: var(--accent) !important; color: #fff !important; }
+.cal-cell.past { opacity: .35; cursor: default; }
+.cal-cell.weekend { color: #7B6B8A; }
+.cal-cell.empty { cursor: default; }
+.occ-dot { width: 5px; height: 5px; border-radius: 50%; }
+
+/* ── Quick nav ── */
+.section-title {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.2px;
+  color: var(--muted); text-transform: uppercase; margin-bottom: 10px;
+}
+.quick-btn {
+  width: 100%; padding: 9px 12px; border-radius: 10px;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--font-b); font-size: 13px;
+  cursor: pointer; text-align: left; transition: all .15s;
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 6px;
+}
+.quick-btn:hover { border-color: var(--accent); color: var(--accent); }
+.quick-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.quick-slots { font-size: 11px; opacity: .6; }
+
+/* ── Content ── */
+.content { padding: 22px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+
+/* ── Date banner ── */
+.date-banner {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 16px 20px;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.date-label { font-family: var(--font-h); font-size: 20px; font-weight: 700; }
+.date-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.date-stats { display: flex; gap: 24px; }
+.stat-num { font-family: var(--font-h); font-size: 28px; font-weight: 800; line-height: 1; }
+.stat-lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+/* ── My booking banner ── */
+.my-banner {
+  background: rgba(79,126,255,.12); border: 1px solid rgba(79,126,255,.3);
+  border-radius: 12px; padding: 11px 16px;
+  display: flex; align-items: center; gap: 12px; font-size: 14px;
+  animation: fadeIn .3s ease;
+}
+
+/* ── Tabs ── */
+.tabs { display: flex; gap: 6px; }
+.tab {
+  padding: 7px 16px; border-radius: 10px; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all .15s; border: 1px solid var(--border);
+  background: var(--surface); color: var(--muted); font-family: var(--font-b);
+}
+.tab.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+.refresh-btn {
+  margin-left: auto; padding: 7px 14px; border-radius: 10px;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--muted); font-family: var(--font-b); font-size:12px; cursor: pointer;
+  transition: all .15s; display: flex; align-items: center; gap: 6px;
+}
+.refresh-btn:hover { color: var(--text); }
+
+/* ── Map ── */
+.map-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 18px; padding: 22px;
+}
+.map-label {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: var(--border); letter-spacing: 2px;
+  margin-bottom: 16px; font-weight: 600;
+}
+.zones-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 500px) { .zones-grid { grid-template-columns: 1fr; } }
+
+.zone-pod {
+  border-radius: 14px; padding: 14px 16px;
+  border: 1px solid transparent;
+}
+.zone-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px; font-size: 12px; font-weight: 700; letter-spacing: .5px;
+}
+.zone-count {
+  font-size: 11px; padding: 2px 8px; border-radius: 10px;
+  font-weight: 600;
+}
+.desks-row { display: flex; gap: 8px; justify-content: center; }
+.aisle { height: 8px; margin: 5px 0; border-radius: 4px; opacity: .3; }
+
+.desk {
+  width: 68px; height: 52px; border-radius: 10px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  cursor: pointer; transition: all .18s ease; position: relative;
+  border: 2px solid transparent;
+}
+.desk:hover { transform: scale(1.1); }
+.desk-num {
+  font-family: var(--font-h); font-size: 16px; font-weight: 700; line-height: 1;
+}
+.desk-name {
+  font-size: 9px; font-weight: 600; max-width: 60px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin-top: 2px;
+}
+.desk-monitor {
+  width: 26px; height: 3px; border-radius: 2px 2px 0 0;
+  margin-bottom: 3px; opacity: .4;
+}
+.desk-led {
+  position: absolute; top: -4px; right: -4px;
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid var(--surface);
+}
+.desk-led.free   { background: var(--green); animation: pulse 2.5s infinite; }
+.desk-led.taken  { background: var(--red); }
+.desk-led.mine   { background: var(--accent); }
+
+.desk.free  { background: rgba(46,204,113,.08);  border-color: rgba(46,204,113,.25); }
+.desk.taken { background: rgba(231,76,60,.08);   border-color: rgba(231,76,60,.25); }
+.desk.mine  { background: rgba(79,126,255,.12);  border-color: rgba(79,126,255,.4); }
+.desk.free  .desk-num { color: var(--green); }
+.desk.taken .desk-num { color: var(--red); }
+.desk.mine  .desk-num { color: var(--accent); }
+.desk.free  .desk-monitor { background: var(--green); }
+.desk.taken .desk-monitor { background: var(--red); }
+.desk.mine  .desk-monitor { background: var(--accent); }
+
+/* ── Legend ── */
+.legend { display: flex; gap: 20px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+/* ── List view ── */
+.list-zone { margin-bottom: 18px; }
+.list-zone-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  padding: 4px 12px; border-radius: 7px; display: inline-block; margin-bottom: 10px;
+}
+.list-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+.list-item {
+  padding: 10px 14px; border-radius: 11px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface2);
+  transition: all .15s; display: flex; align-items: center; justify-content: space-between;
+}
+.list-item:hover { border-color: var(--accent); transform: translateY(-1px); }
+.list-num { font-family: var(--font-h); font-size: 15px; font-weight: 700; }
+.list-who { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.list-led { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Modal ── */
+.overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.75);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; backdrop-filter: blur(6px);
+  animation: fadeIn .15s ease; padding: 16px;
+}
+.modal {
+  background: var(--surface); border-radius: 22px;
+  padding: 32px 36px; width: 100%; max-width: 370px;
+  box-shadow: 0 32px 80px rgba(0,0,0,.6);
+  animation: slideUp .2s ease;
+}
+.modal-desk-header {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 22px;
+}
+.modal-desk-icon {
+  width: 50px; height: 50px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-h); font-size: 22px; font-weight: 800;
+  flex-shrink: 0;
+}
+.modal-title { font-family: var(--font-h); font-size: 20px; font-weight: 700; }
+.modal-sub   { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+.occupied-box {
+  background: rgba(231,76,60,.1); border: 1px solid rgba(231,76,60,.3);
+  border-radius: 12px; padding: 14px 16px; margin-bottom: 20px;
+}
+.occupied-label { font-size: 10px; color: var(--red); font-weight: 700; letter-spacing: 1px; margin-bottom: 6px; }
+.occupied-name  { font-family: var(--font-h); font-size: 22px; font-weight: 700; }
+.occupied-time  { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+.input-label { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: .5px; margin-bottom: 8px; display: block; }
+.input {
+  width: 100%; padding: 13px 15px; border-radius: 12px;
+  background: var(--surface2); border: 1.5px solid var(--border);
+  color: var(--text); font-family: var(--font-b); font-size: 16px;
+  outline: none; transition: border .2s; margin-bottom: 16px;
+}
+.input:focus { border-color: var(--accent); }
+.input::placeholder { color: var(--muted); }
+
+.btn-primary {
+  width: 100%; padding: 13px; border-radius: 12px;
+  background: var(--accent); color: #fff; border: none;
+  font-family: var(--font-h); font-size: 16px; font-weight: 700;
+  cursor: pointer; transition: all .2s; letter-spacing: .5px;
+}
+.btn-primary:hover:not(:disabled) { background: #6B94FF; transform: translateY(-1px); }
+.btn-primary:disabled { background: var(--surface2); color: var(--muted); cursor: not-allowed; }
+.btn-danger {
+  width: 100%; padding: 13px; border-radius: 12px;
+  background: rgba(231,76,60,.15); color: var(--red);
+  border: 1px solid rgba(231,76,60,.4);
+  font-family: var(--font-h); font-size: 16px; font-weight: 700;
+  cursor: pointer; transition: all .2s; letter-spacing: .5px;
+}
+.btn-danger:hover { background: rgba(231,76,60,.25); }
+.btn-ghost {
+  width: 100%; padding: 10px; border-radius: 12px;
+  background: transparent; border: 1px solid var(--border);
+  color: var(--muted); font-family: var(--font-b); font-size: 14px;
+  cursor: pointer; margin-top: 10px; transition: all .2s;
+}
+.btn-ghost:hover { border-color: var(--text); color: var(--text); }
+
+/* ── Login screen ── */
+.login-screen {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  background: radial-gradient(ellipse at 20% 50%, rgba(79,126,255,.08) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 20%, rgba(46,204,113,.05) 0%, transparent 50%),
+              var(--bg);
+}
+.login-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 24px; padding: 48px 44px;
+  max-width: 420px; width: 100%;
+  box-shadow: 0 40px 80px rgba(0,0,0,.5);
+  animation: slideUp .3s ease;
+}
+.login-icon {
+  width: 64px; height: 64px; border-radius: 18px;
+  background: linear-gradient(135deg, var(--accent), #7B61FF);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; margin: 0 auto 24px;
+  box-shadow: 0 8px 32px rgba(79,126,255,.3);
+}
+.login-title { font-family: var(--font-h); font-size: 36px; font-weight: 800; text-align: center; letter-spacing: 2px; margin-bottom: 6px; }
+.login-sub { text-align: center; color: var(--muted); font-size: 14px; margin-bottom: 36px; }
+.login-status {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px 18px; margin-top: 24px;
+  display: flex; gap: 28px;
+}
+.login-stat-num { font-family: var(--font-h); font-size: 26px; font-weight: 800; }
+.login-stat-lbl { font-size: 12px; color: var(--muted); }
+
+/* ── Notification ── */
+.notif {
+  position: fixed; bottom: 24px; right: 24px; z-index: 2000;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); padding: 13px 20px; border-radius: 14px;
+  font-weight: 600; font-size: 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.5);
+  animation: slideDown .3s ease; max-width: 320px;
+  display: flex; align-items: center; gap: 10px;
+}
+.notif.success { border-color: rgba(46,204,113,.4); }
+.notif.error   { border-color: rgba(231,76,60,.4); }
+
+/* ── Loading ── */
+.loading-ring {
+  width: 20px; height: 20px; border: 2px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* ── Occupancy bar ── */
+.occ-bar-wrap { height: 3px; background: var(--border); }
+.occ-bar { height: 100%; transition: all .5s ease; border-radius: 0 2px 2px 0; }
+
+/* ── Setup overlay ── */
+.setup-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.92);
+  z-index: 9999; display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.setup-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; padding: 36px 40px; max-width: 560px; width: 100%;
+  max-height: 90vh; overflow-y: auto;
+}
+.setup-card h2 { font-family: var(--font-h); font-size: 24px; margin-bottom: 16px; color: var(--orange); }
+.setup-card ol { padding-left: 20px; color: var(--muted); line-height: 2; font-size: 14px; }
+.setup-card ol li { margin-bottom: 8px; }
+.setup-card strong { color: var(--text); }
+.setup-card code {
+  background: var(--surface2); padding: 2px 8px; border-radius: 6px;
+  font-size: 12px; color: var(--accent); border: 1px solid var(--border);
+}
+.setup-card pre {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px; margin: 12px 0;
+  font-size: 12px; color: var(--accent); overflow-x: auto;
+  white-space: pre-wrap; line-height: 1.8;
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- rendered by JS -->
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════════════════════════ */
+const TOTAL = 24;
+const ZONES = [
+  { id:"A", name:"Zona A", bg:"rgba(33,150,243,.12)", border:"rgba(33,150,243,.35)", text:"#64B5F6" },
+  { id:"B", name:"Zona B", bg:"rgba(156,39,176,.12)", border:"rgba(156,39,176,.35)", text:"#CE93D8" },
+  { id:"C", name:"Zona C", bg:"rgba(46,204,113,.10)", border:"rgba(46,204,113,.35)", text:"#81C784" },
+  { id:"D", name:"Zona D", bg:"rgba(243,156,18,.10)", border:"rgba(243,156,18,.35)", text:"#FFB74D" },
+];
+const DESKS = Array.from({length:TOTAL},(_,i)=>({
+  id: i+1, zone: ZONES[Math.floor(i/6)],
+  row: Math.floor((i%6)/3), col: i%3
+}));
+const MONTHS = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
+const DAYS_SHORT = ["L","M","M","G","V","S","D"];
+const DAY_NAMES = ["Dom","Lun","Mar","Mer","Gio","Ven","Sab"];
+
+/* ═══════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════ */
+const fmt = d => {
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,"0"), dd = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${dd}`;
+};
+const todayStr = () => fmt(new Date());
+const addDays = (s, n) => { const d = new Date(s+"T00:00:00"); d.setDate(d.getDate()+n); return fmt(d); };
+const parseLocal = s => new Date(s+"T00:00:00");
+const isPast = s => s < todayStr();
+const isWeekend = s => { const d = parseLocal(s).getDay(); return d===0||d===6; };
+const humanDate = s => {
+  const d = parseLocal(s);
+  return `${DAY_NAMES[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+};
+const el = (tag, props={}, ...children) => {
+  const e = document.createElement(tag);
+  for (const [k,v] of Object.entries(props)) {
+    if (k === "class") e.className = v;
+    else if (k === "style" && typeof v==="object") Object.assign(e.style, v);
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2).toLowerCase(), v);
+    else e.setAttribute(k, v);
+  }
+  for (const c of children.flat()) {
+    if (c == null || c === false) continue;
+    e.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+  }
+  return e;
+};
+const html = (str) => { const d = document.createElement("div"); d.innerHTML = str; return d.firstChild; };
+
+/* ═══════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════ */
+const state = {
+  bookings: {},       // { deskId: {name, bookedAt} } for selected date
+  weekData: {},       // { dateStr: count }
+  selectedDate: todayStr(),
+  currentUser: localStorage.getItem("desk-user") || "",
+  view: "map",
+  calYear: new Date().getFullYear(),
+  calMonth: new Date().getMonth(),
+  loading: true,
+  fbReady: false,
+  notifTimer: null,
+  unsubscribe: null,
+};
+
+/* ═══════════════════════════════════════════════════════════
+   FIREBASE OPERATIONS
+═══════════════════════════════════════════════════════════ */
+function subscribeToDate(date) {
+  if (!state.fbReady) return;
+  if (state.unsubscribe) { state.unsubscribe(); state.unsubscribe = null; }
+  const r = window.__ref(window.__db, `bookings/${date}`);
+  state.unsubscribe = window.__onValue(r, snap => {
+    state.bookings = snap.val() || {};
+    state.loading = false;
+    renderContent();
+  });
+}
+
+function subscribeToMonth(year, month) {
+  if (!state.fbReady) return;
+  const prefix = `${year}-${String(month+1).padStart(2,"0")}`;
+  const r = window.__ref(window.__db, "bookings");
+  window.__onValue(r, snap => {
+    const all = snap.val() || {};
+    const wd = {};
+    for (const [date, desks] of Object.entries(all)) {
+      if (date.startsWith(prefix)) wd[date] = Object.keys(desks).length;
+    }
+    state.weekData = wd;
+    renderSidebar();
+  }, { onlyOnce: true });
+}
+
+async function bookDesk(deskId, name) {
+  const path = `bookings/${state.selectedDate}/${deskId}`;
+  const r = window.__ref(window.__db, path);
+  const snap = await window.__db.__get ? null : await (async()=>{ const g = window.__ref(window.__db,path); return (await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js")).get(g); })();
+  // Use set directly — Firebase will overwrite if exists, we check first via onValue state
+  if (state.bookings[deskId]) { showNotif("⚠️ Scrivania già occupata!","error"); return; }
+  await window.__set(r, { name, bookedAt: new Date().toISOString() });
+  // onValue will auto-update
+}
+
+async function cancelDesk(deskId) {
+  const r = window.__ref(window.__db, `bookings/${state.selectedDate}/${deskId}`);
+  await window.__remove(r);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   NOTIFICATIONS
+═══════════════════════════════════════════════════════════ */
+function showNotif(msg, type="success") {
+  document.querySelectorAll(".notif").forEach(n=>n.remove());
+  if (state.notifTimer) clearTimeout(state.notifTimer);
+  const icon = type==="success"?"✓":type==="error"?"⚠":"ℹ";
+  const n = el("div",{class:`notif ${type}`}, el("span",{},icon), msg);
+  document.body.appendChild(n);
+  state.notifTimer = setTimeout(()=>n.remove(), 3500);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODAL
+═══════════════════════════════════════════════════════════ */
+function openModal(desk) {
+  closeModal();
+  const booking = state.bookings[desk.id];
+  const isOcc   = !!booking;
+  const isOwner = booking?.name === state.currentUser;
+  const past    = isPast(state.selectedDate);
+  const isTod   = state.selectedDate === todayStr();
+
+  const overlay = el("div",{class:"overlay", onClick(e){ if(e.target===overlay) closeModal(); }});
+  const modal   = el("div",{class:"modal"});
+
+  // Header
+  const icon = el("div",{class:"modal-desk-icon",style:{background:desk.zone.bg,border:`2px solid ${desk.zone.border}`,color:desk.zone.text}}, String(desk.id));
+  const info = el("div",{},
+    el("div",{class:"modal-title"}, `Scrivania ${desk.id}`),
+    el("div",{class:"modal-sub"}, `${desk.zone.name} · ${humanDate(state.selectedDate)}`)
+  );
+  modal.appendChild(el("div",{class:"modal-desk-header"}, icon, info));
+
+  // Past warning
+  if (past) modal.appendChild(el("div",{style:{background:"rgba(243,156,18,.1)",border:"1px solid rgba(243,156,18,.3)",borderRadius:"10px",padding:"10px 14px",fontSize:"13px",color:"#F39C12",marginBottom:"16px"}}, "📅 Data passata — sola lettura"));
+
+  if (isOcc) {
+    // Occupied
+    const box = el("div",{class:"occupied-box"},
+      el("div",{class:"occupied-label"}, "OCCUPATA DA"),
+      el("div",{class:"occupied-name"}, booking.name),
+      el("div",{class:"occupied-time"}, `Prenotata il ${new Date(booking.bookedAt).toLocaleDateString("it-IT",{day:"2-digit",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"})}`)
+    );
+    modal.appendChild(box);
+    if (isOwner && !past) {
+      const btn = el("button",{class:"btn-danger", onClick: async()=>{
+        await cancelDesk(desk.id);
+        closeModal();
+        showNotif(`✓ Prenotazione scrivania ${desk.id} cancellata.`,"info");
+        subscribeToMonth(state.calYear, state.calMonth);
+      }}, "🗑  Cancella la mia prenotazione");
+      modal.appendChild(btn);
+    } else if (!isOwner) {
+      modal.appendChild(el("p",{style:{textAlign:"center",color:"var(--muted)",fontSize:"13px"}}, "Non puoi cancellare prenotazioni altrui"));
+    }
+  } else if (!past) {
+    // Book form
+    const label = el("label",{class:"input-label"}, "IL TUO NOME");
+    const input = el("input",{class:"input", type:"text", placeholder:"Es. Mario Rossi"});
+    input.value = state.currentUser || "";
+    const btn = el("button",{class:"btn-primary", onClick: async()=>{
+      const name = input.value.trim();
+      if (!name) return;
+      await bookDesk(desk.id, name);
+      state.currentUser = name;
+      localStorage.setItem("desk-user", name);
+      closeModal();
+      showNotif(`🎉 Scrivania ${desk.id} prenotata per ${humanDate(state.selectedDate)}!`);
+      subscribeToMonth(state.calYear, state.calMonth);
+    }}, `✓  Prenota scrivania ${desk.id}`);
+    input.addEventListener("input", ()=>{ btn.disabled = !input.value.trim(); });
+    input.addEventListener("keydown", e=>{ if(e.key==="Enter"&&input.value.trim()) btn.click(); });
+    btn.disabled = !input.value.trim();
+    modal.append(label, input, btn);
+  } else {
+    modal.appendChild(el("p",{style:{textAlign:"center",color:"var(--muted)",fontSize:"14px",padding:"8px 0"}}, "Nessuna prenotazione per questo giorno."));
+  }
+
+  modal.appendChild(el("button",{class:"btn-ghost", onClick:closeModal}, "Chiudi"));
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  setTimeout(()=>modal.querySelector("input")?.focus(), 50);
+}
+
+function closeModal() { document.querySelectorAll(".overlay").forEach(o=>o.remove()); }
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER HELPERS
+═══════════════════════════════════════════════════════════ */
+function renderDesk(desk) {
+  const b = state.bookings[desk.id];
+  const cls = b ? (b.name===state.currentUser?"mine":"taken") : "free";
+  const d = el("div",{class:`desk ${cls}`, onClick:()=>openModal(desk)});
+  d.appendChild(el("div",{class:"desk-monitor"}));
+  d.appendChild(el("div",{class:"desk-num"}, String(desk.id)));
+  if (b) d.appendChild(el("div",{class:"desk-name"}, b.name));
+  const led = el("div",{class:`desk-led ${cls}`});
+  d.appendChild(led);
+  return d;
+}
+
+function renderZone(zone) {
+  const zd = DESKS.filter(d=>d.zone.id===zone.id);
+  const occ = zd.filter(d=>state.bookings[d.id]).length;
+  const pod = el("div",{class:"zone-pod",style:{background:zone.bg,border:`1px solid ${zone.border}`}});
+
+  const header = el("div",{class:"zone-header"},
+    el("span",{style:{color:zone.text}}, zone.name),
+    el("span",{class:"zone-count",style:{background:zone.bg,border:`1px solid ${zone.border}`,color:zone.text}}, `${occ}/${zd.length}`)
+  );
+  pod.appendChild(header);
+
+  [0,1].forEach(row=>{
+    const rowEl = el("div",{class:"desks-row"});
+    zd.filter(d=>d.row===row).forEach(d=>rowEl.appendChild(renderDesk(d)));
+    pod.appendChild(rowEl);
+    if (row===0) pod.appendChild(el("div",{class:"aisle",style:{background:zone.text}}));
+  });
+  return pod;
+}
+
+function renderMapView() {
+  const wrap = el("div",{class:"map-card"});
+  wrap.appendChild(el("div",{class:"map-label"},
+    el("span",{},"← INGRESSO"),
+    el("span",{},"OPEN SPACE"),
+    el("span",{},"FINESTRE →")
+  ));
+  const grid = el("div",{class:"zones-grid"});
+  ZONES.forEach(z=>grid.appendChild(renderZone(z)));
+  wrap.appendChild(grid);
+  wrap.appendChild(el("div",{class:"legend"},
+    ...[["var(--green)","Libera"],["var(--red)","Occupata"],["var(--accent)","La tua"]].map(([c,l])=>
+      el("div",{class:"legend-item"}, el("div",{class:"legend-dot",style:{background:c}}), l)
+    )
+  ));
+  return wrap;
+}
+
+function renderListView() {
+  const wrap = el("div",{class:"map-card"});
+  ZONES.forEach(zone=>{
+    const section = el("div",{class:"list-zone"});
+    section.appendChild(el("div",{class:"list-zone-title",style:{background:zone.bg,border:`1px solid ${zone.border}`,color:zone.text}}, zone.name));
+    const grid = el("div",{class:"list-grid"});
+    DESKS.filter(d=>d.zone.id===zone.id).forEach(desk=>{
+      const b = state.bookings[desk.id];
+      const isMe = b?.name===state.currentUser;
+      const cls = b?(isMe?"mine":"taken"):"free";
+      const ledColor = b?(isMe?"var(--accent)":"var(--red)"):"var(--green)";
+      const item = el("div",{class:"list-item",onClick:()=>openModal(desk)});
+      const left = el("div",{});
+      left.appendChild(el("div",{class:"list-num"}, `Scrivania ${desk.id}`));
+      left.appendChild(el("div",{class:"list-who"}, b?`${b.name}${isMe?" (tu)":""}`:el("span",{style:{color:"var(--green)"}},"Disponibile")));
+      item.append(left, el("div",{class:"list-led",style:{background:ledColor}}));
+      grid.appendChild(item);
+    });
+    section.appendChild(grid);
+    wrap.appendChild(section);
+  });
+  return wrap;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER CALENDAR
+═══════════════════════════════════════════════════════════ */
+function renderCalendar() {
+  const y = state.calYear, m = state.calMonth;
+  const firstDay = new Date(y, m, 1).getDay();
+  const offset = firstDay===0?6:firstDay-1;
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const cells = [];
+  for(let i=0;i<offset;i++) cells.push(null);
+  for(let d=1;d<=daysInMonth;d++) cells.push(d);
+
+  const container = el("div",{});
+  container.appendChild(el("div",{class:"section-title"}, "CALENDARIO"));
+
+  const calWrap = el("div",{});
+  // Header
+  const header = el("div",{class:"cal-header"});
+  const prev = el("button",{class:"cal-nav", onClick:()=>{
+    if(m===0){state.calYear--;state.calMonth=11;}else{state.calMonth--;}
+    subscribeToMonth(state.calYear,state.calMonth);
+    renderSidebar();
+  }},"‹");
+  const next = el("button",{class:"cal-nav", onClick:()=>{
+    if(m===11){state.calYear++;state.calMonth=0;}else{state.calMonth++;}
+    subscribeToMonth(state.calYear,state.calMonth);
+    renderSidebar();
+  }},"›");
+  header.append(prev, el("span",{class:"cal-month"},`${MONTHS[m]} ${y}`), next);
+  calWrap.appendChild(header);
+
+  // Day names
+  const dnames = el("div",{class:"cal-days-header"});
+  DAYS_SHORT.forEach((d,i)=>{
+    dnames.appendChild(el("div",{class:"cal-day-name",style:{color:i>=5?"#7B6B8A":""}},d));
+  });
+  calWrap.appendChild(dnames);
+
+  // Grid
+  const grid = el("div",{class:"cal-grid"});
+  cells.forEach((day)=>{
+    if(!day){grid.appendChild(el("div",{class:"cal-cell empty"}));return;}
+    const ds = `${y}-${String(m+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+    const isSel = ds===state.selectedDate;
+    const isTod = ds===todayStr();
+    const past = isPast(ds);
+    const wknd = isWeekend(ds);
+    const occ  = state.weekData[ds]||0;
+    const pct  = occ/TOTAL;
+    const dotColor = occ===0?null:pct<0.5?"var(--green)":pct<0.85?"var(--orange)":"var(--red)";
+
+    let cls = "cal-cell";
+    if(isSel) cls+=" selected";
+    else if(isTod) cls+=" today";
+    if(past) cls+=" past";
+    if(wknd && !isSel) cls+=" weekend";
+
+    const cell = el("div",{class:cls,onClick:()=>{
+      if(past)return;
+      state.selectedDate=ds;
+      state.loading=true;
+      subscribeToDate(ds);
+      renderAll();
+    }});
+    cell.appendChild(el("span",{},String(day)));
+    if(dotColor && !past) cell.appendChild(el("div",{class:"occ-dot",style:{background:dotColor}}));
+    grid.appendChild(cell);
+  });
+  calWrap.appendChild(grid);
+
+  // Legend
+  const legend = el("div",{style:{display:"flex",gap:"12px",marginTop:"10px",flexWrap:"wrap"}});
+  [["var(--green)","Libero"],["var(--orange)","Misto"],["var(--red)","Pieno"]].forEach(([c,l])=>{
+    legend.appendChild(el("div",{style:{display:"flex",alignItems:"center",gap:"5px",fontSize:"10px",color:"var(--muted)"}},
+      el("div",{style:{width:"6px",height:"6px",borderRadius:"50%",background:c}}),l
+    ));
+  });
+  calWrap.appendChild(legend);
+  container.appendChild(calWrap);
+  return container;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER QUICK NAV
+═══════════════════════════════════════════════════════════ */
+function renderQuickNav() {
+  const wrap = el("div",{});
+  wrap.appendChild(el("div",{class:"section-title"},"NAVIGAZIONE RAPIDA"));
+  const t = todayStr();
+  [
+    [t, "📅 Oggi"],
+    [addDays(t,1), "▶ Domani"],
+    [addDays(t,2), `▶ ${DAY_NAMES[parseLocal(addDays(t,2)).getDay()]}`],
+    [addDays(t,7), "▶ +7 giorni"],
+  ].forEach(([date,label])=>{
+    const occ = state.weekData[date];
+    const free = occ!=null ? TOTAL-occ : null;
+    const btn = el("button",{class:`quick-btn${state.selectedDate===date?" active":""}`,onClick:()=>{
+      if(isPast(date))return;
+      state.selectedDate=date;
+      state.calYear=parseLocal(date).getFullYear();
+      state.calMonth=parseLocal(date).getMonth();
+      state.loading=true;
+      subscribeToDate(date);
+      subscribeToMonth(state.calYear,state.calMonth);
+      renderAll();
+    }},
+      el("span",{},label),
+      free!=null?el("span",{class:"quick-slots"},`${free} libere`):`${""}`
+    );
+    wrap.appendChild(btn);
+  });
+  return wrap;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER SECTIONS
+═══════════════════════════════════════════════════════════ */
+function renderSidebar() {
+  const sb = document.querySelector(".sidebar");
+  if(!sb)return;
+  sb.innerHTML="";
+  sb.appendChild(renderQuickNav());
+  sb.appendChild(renderCalendar());
+}
+
+function renderContent() {
+  const content = document.querySelector(".content");
+  if(!content)return;
+  content.innerHTML="";
+
+  const occupied = Object.keys(state.bookings).length;
+  const available = TOTAL - occupied;
+  const past = isPast(state.selectedDate);
+  const isTod = state.selectedDate===todayStr();
+  const myDesks = Object.entries(state.bookings).filter(([,b])=>b.name===state.currentUser).map(([id])=>id);
+
+  // Date banner
+  const bannerAccent = past?"var(--orange)":isTod?"var(--green)":"var(--accent)";
+  const banner = el("div",{class:"date-banner",style:{borderColor:`${bannerAccent}33`}});
+  const left = el("div",{});
+  left.appendChild(el("div",{class:"date-label"},humanDate(state.selectedDate)));
+  left.appendChild(el("div",{class:"date-sub"}, past?"📁 Data passata":isTod?"📅 Oggi":"🗓 Prenotazione futura"));
+  const stats = el("div",{class:"date-stats"});
+  const av = el("div",{});
+  av.appendChild(el("div",{class:"stat-num",style:{color:"var(--green)"}},String(available)));
+  av.appendChild(el("div",{class:"stat-lbl"},"libere"));
+  const oc = el("div",{});
+  oc.appendChild(el("div",{class:"stat-num",style:{color:"var(--red)"}},String(occupied)));
+  oc.appendChild(el("div",{class:"stat-lbl"},"occupate"));
+  stats.append(av,oc);
+  banner.append(left,stats);
+  content.appendChild(banner);
+
+  // My booking banner
+  if(myDesks.length>0) {
+    content.appendChild(el("div",{class:"my-banner"},
+      el("span",{style:{fontSize:"18px"}},"★"),
+      el("div",{},
+        el("div",{style:{fontWeight:700,fontSize:"14px"}},`Scrivania ${myDesks.join(", ")} — ${humanDate(state.selectedDate)}`),
+        el("div",{style:{fontSize:"12px",color:"var(--accent)",marginTop:"2px"}},"Clicca per cancellare")
+      )
+    ));
+  }
+
+  // Tabs + refresh
+  const tabRow = el("div",{style:{display:"flex",gap:"6px",alignItems:"center",flexWrap:"wrap"}});
+  ["map","list"].forEach(v=>{
+    const labels = {map:"🗺  Mappa",list:"📋  Lista"};
+    const t = el("button",{class:`tab${state.view===v?" active":""}`,onClick:()=>{state.view=v;renderContent();}},labels[v]);
+    tabRow.appendChild(t);
+  });
+  const refreshBtn = el("button",{class:"refresh-btn",onClick:()=>{
+    state.loading=true;
+    subscribeToDate(state.selectedDate);
+    subscribeToMonth(state.calYear,state.calMonth);
+    renderContent();
+  }},
+    state.loading?el("div",{class:"loading-ring"}):"↻",
+    " Aggiorna"
+  );
+  tabRow.appendChild(refreshBtn);
+  content.appendChild(tabRow);
+
+  // View
+  if(state.loading) {
+    content.appendChild(el("div",{class:"map-card",style:{textAlign:"center",padding:"40px",color:"var(--muted)"}},
+      el("div",{class:"loading-ring",style:{margin:"0 auto 12px"}}),
+      el("div",{},"Caricamento...")
+    ));
+  } else {
+    content.appendChild(state.view==="map"?renderMapView():renderListView());
+  }
+}
+
+function renderHeader() {
+  const header = document.querySelector("header");
+  if(!header)return;
+  const occupied = Object.keys(state.bookings).length;
+  const available = TOTAL - occupied;
+  const pills = header.querySelector(".header-pills");
+  if(!pills)return;
+  pills.innerHTML="";
+  const gp = el("div",{class:"pill pill-green"},el("div",{class:"dot",style:{background:"var(--green)"}}),`${available} libere`);
+  const rp = el("div",{class:"pill pill-red"},  el("div",{class:"dot",style:{background:"var(--red)"}}),  `${occupied} occupate`);
+  const up = el("div",{class:"pill",style:{cursor:"pointer",background:"rgba(255,255,255,.05)",border:"1px solid var(--border)"},onClick:()=>{state.currentUser="";localStorage.removeItem("desk-user");renderAll();}},
+    `👤 ${state.currentUser}  ·  `, el("span",{style:{color:"var(--muted)",fontSize:"11px"}},"esci")
+  );
+  pills.append(gp,rp,up);
+
+  // Update occ bar
+  const bar = document.querySelector(".occ-bar");
+  if(bar) {
+    const pct = (occupied/TOTAL)*100;
+    bar.style.width=`${pct}%`;
+    bar.style.background = pct>75?"var(--red)":pct>50?"var(--orange)":"var(--green)";
+  }
+}
+
+function renderAll() {
+  const app = document.getElementById("app");
+  if(!state.currentUser) { renderLogin(app); return; }
+  if(!state.fbReady)     { renderWaiting(app); return; }
+  renderMain(app);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER MAIN LAYOUT
+═══════════════════════════════════════════════════════════ */
+function renderMain(app) {
+  // Only rebuild skeleton once
+  if(!app.querySelector("header")) {
+    app.innerHTML="";
+    const h = el("header",{},
+      el("div",{class:"logo"}, el("div",{class:"logo-icon"},"🏢"), "DESK BOOKING"),
+      el("div",{class:"header-pills"})
+    );
+    const bar = el("div",{class:"occ-bar-wrap"}, el("div",{class:"occ-bar",style:{width:"0%"}}));
+    const m = el("main",{},
+      el("div",{class:"sidebar"}),
+      el("div",{class:"content"})
+    );
+    app.append(h, bar, m);
+  }
+  renderHeader();
+  renderSidebar();
+  renderContent();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER LOGIN
+═══════════════════════════════════════════════════════════ */
+function renderLogin(app) {
+  app.innerHTML="";
+  const occupied = Object.keys(state.bookings).length;
+  const available = TOTAL - occupied;
+
+  const screen = el("div",{class:"login-screen"});
+  const card   = el("div",{class:"login-card"});
+  card.appendChild(el("div",{class:"login-icon"},"🏢"));
+  card.appendChild(el("div",{class:"login-title"},"DESK BOOKING"));
+  card.appendChild(el("div",{class:"login-sub"},"Sistema prenotazione scrivanie · 24 postazioni"));
+
+  const label = el("label",{class:"input-label"},"COME TI CHIAMI?");
+  const input = el("input",{class:"input",type:"text",placeholder:"Es. Mario Rossi"});
+  const btn   = el("button",{class:"btn-primary",onClick:()=>{
+    const v=input.value.trim();
+    if(!v)return;
+    state.currentUser=v;
+    localStorage.setItem("desk-user",v);
+    renderAll();
+  }},"Entra nella mappa  →");
+  btn.disabled=true;
+  input.addEventListener("input",()=>btn.disabled=!input.value.trim());
+  input.addEventListener("keydown",e=>{if(e.key==="Enter"&&input.value.trim())btn.click();});
+
+  const status = el("div",{class:"login-status"});
+  const avEl   = el("div",{});
+  avEl.appendChild(el("div",{class:"login-stat-num",style:{color:"var(--green)"}},String(available)));
+  avEl.appendChild(el("div",{class:"login-stat-lbl"},"libere oggi"));
+  const ocEl   = el("div",{});
+  ocEl.appendChild(el("div",{class:"login-stat-num",style:{color:"var(--red)"}},String(occupied)));
+  ocEl.appendChild(el("div",{class:"login-stat-lbl"},"occupate oggi"));
+  status.append(avEl,ocEl);
+
+  card.append(label,input,btn,status);
+  screen.appendChild(card);
+  app.appendChild(screen);
+  setTimeout(()=>input.focus(),100);
+}
+
+function renderWaiting(app) {
+  app.innerHTML="";
+  app.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:16px;color:var(--muted);font-family:var(--font-b)">
+    <div class="loading-ring" style="width:32px;height:32px;border-width:3px;"></div>
+    <p>Connessione al database...</p>
+  </div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SETUP CHECK — show instructions if config not done
+═══════════════════════════════════════════════════════════ */
+function checkSetup() {
+  // Check if Firebase config is still placeholder
+  try {
+    // The module sets fbReady only on success
+  } catch(e) {}
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════ */
+window.addEventListener("fb-ready", () => {
+  state.fbReady = true;
+  // Subscribe to today's bookings immediately (for login screen counter)
+  subscribeToDate(todayStr());
+  subscribeToMonth(state.calYear, state.calMonth);
+  if(state.currentUser) subscribeToDate(state.selectedDate);
+  renderAll();
+});
+
+// Render login immediately while waiting for Firebase
+renderAll();
+
+// Fallback: if Firebase config is wrong, show setup guide after 5s
+setTimeout(()=>{
+  if(!state.fbReady) {
+    showSetupGuide();
+  }
+},5000);
+
+function showSetupGuide() {
+  const ov = el("div",{class:"setup-overlay"});
+  const card = el("div",{class:"setup-card"});
+  card.innerHTML=`
+    <h2>⚙️ Configurazione Firebase richiesta</h2>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:20px;">
+      Per far funzionare l'app devi collegare un database Firebase gratuito.
+      Segui questi passi — ci vogliono circa <strong style="color:var(--text)">5 minuti</strong>.
+    </p>
+    <ol>
+      <li><strong>Vai su</strong> <a href="https://console.firebase.google.com" target="_blank" style="color:var(--accent)">console.firebase.google.com</a> e accedi con Google</li>
+      <li><strong>Clicca</strong> "Aggiungi progetto" → dai un nome (es. <code>desk-booking</code>) → crea</li>
+      <li>Nel menu a sinistra vai su <strong>Build → Realtime Database</strong></li>
+      <li>Clicca <strong>"Crea database"</strong> → scegli la regione Europa → modalità <strong>test</strong></li>
+      <li>Vai su <strong>Impostazioni progetto ⚙️</strong> → "Le tue app" → aggiungi app <strong>Web &lt;/&gt;</strong></li>
+      <li>Copia il blocco <code>firebaseConfig</code> che appare</li>
+      <li>Apri questo file HTML con un editor di testo (es. Blocco Note) e <strong>sostituisci</strong> i valori nella sezione <code>firebaseConfig</code> in cima al file</li>
+    </ol>
+    <pre>const firebaseConfig = {
+  apiKey:            "AIzaSy...",
+  authDomain:        "mio-progetto.firebaseapp.com",
+  databaseURL:       "https://mio-progetto-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "mio-progetto",
+  storageBucket:     "mio-progetto.appspot.com",
+  messagingSenderId: "123456789",
+  appId:             "1:123456789:web:abc123"
+};</pre>
+    <p style="color:var(--muted);font-size:13px;margin-top:12px;">
+      ⚠️ <strong style="color:var(--text)">Importante:</strong> nelle regole del database, assicurati che siano impostate su <code>"read": true, "write": true</code> durante i test.
+    </p>
+    <button class="btn-primary" style="margin-top:20px" onclick="this.closest('.setup-overlay').remove()">Ho capito, chiudi</button>
+  `;
+  ov.appendChild(card);
+  document.body.appendChild(ov);
+}
+</script>
+</body>
+</html>
